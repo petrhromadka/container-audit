@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
+### Added
+
+- `--ignore CHECK_ID` (repeatable) to suppress accepted findings before output and `--fail-on`.
+- SARIF 2.1.0 output (`--format sarif`) and a `security-scan.yml` workflow that uploads it to GitHub code scanning.
+- PyPI trove classifiers; Dependabot for GitHub Actions and uv.
+- CI jobs that build the Docker image and run a live audit against a real container; CI matrix note.
+
 ## [0.1.1] - 2026-11-05
 
 ### Added

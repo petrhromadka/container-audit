@@ -6,7 +6,7 @@
 
 Point it at your containers and it reports the risky configuration — root users, exposed ports,
 secrets in environment variables, privileged mode, dangerous capabilities, mounted Docker sockets,
-shared host namespaces, outdated images and missing hardening — as a clean text, JSON or Markdown report.
+shared host namespaces, outdated images and missing hardening — as a clean text, JSON, Markdown or SARIF report.
 
 [![CI](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/docker-host-audit)](https://pypi.org/project/docker-host-audit/)
@@ -184,7 +184,7 @@ docker ps / docker inspect  ->  parse into Container objects  ->  run checks  ->
    parse a saved copy via `--input`).
 2. **Check** — each check is a pure function over the parsed containers that yields findings. Checks
    never talk to Docker and never change anything.
-3. **Report** — findings are sorted by severity and rendered as text, JSON or Markdown; with
+3. **Report** — findings are sorted by severity and rendered as text, JSON, Markdown or SARIF; with
    `--fail-on`, the exit code reflects the worst severity found.
 
 <details>
