@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from ca.collect import parse_inspect
 from ca.models import Mount, PortBinding
 
@@ -89,3 +91,76 @@ def test_sample_fixture_good_and_bad() -> None:
     assert not good.runs_as_root and good.readonly_rootfs
     assert [(p.host_ip, p.host_port) for p in good.ports] == [("127.0.0.1", "8080")]
     assert not good.ports[0].all_interfaces
+
+
+def test_parse_inspect_skips_non_dict_items() -> None:
+    assert parse_inspect([1, "x", None, [], {}]) == parse_inspect([{}])
+    assert len(parse_inspect([1, {}])) == 1
+    assert parse_inspect([1]) == []
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        {"Config": 5},
+        {"HostConfig": "x"},
+        {"HostConfig": {"RestartPolicy": 5}},
+        {"State": []},
+        {"NetworkSettings": 5},
+        {"Name": 5},
+        {"Id": 5, "Image": 5},
+        {"Config": {"User": 5, "Image": []}},
+        {"State": {"Status": 5}},
+        {"HostConfig": {"PidMode": 5, "NetworkMode": {}, "RestartPolicy": {"Name": 5}}},
+        {"HostConfig": {"CapAdd": 5, "CapDrop": "ALL"}},
+        {"Config": {"Env": "A=b"}},
+        {"Mounts": 5},
+        {"Mounts": {"a": 1}},
+        {"NetworkSettings": {"Ports": 5}},
+        {"NetworkSettings": {"Ports": {"80/tcp": 5}}},
+    ],
+)
+def test_parse_inspect_wrong_types_fall_back_to_defaults(hostile: dict) -> None:
+    (c,) = parse_inspect([hostile])
+
+    assert c.raw is hostile
+    assert c.cap_add == () and c.cap_drop == ()
+    assert c.env == () and c.mounts == () and c.ports == ()
+    assert c.name == "" and c.id == "" and c.user == "" and c.restart_policy == ""
+    assert c.pid_mode == "" and c.network_mode == "" and c.status == ""
+
+
+def test_parse_inspect_keeps_only_string_list_items() -> None:
+    (c,) = parse_inspect(
+        [
+            {
+                "Config": {"Env": [1, "A=b", None]},
+                "HostConfig": {"CapAdd": [1, "NET_ADMIN"], "CapDrop": [["x"], "ALL"]},
+            }
+        ]
+    )
+
+    assert c.env == ("A=b",)
+    assert c.cap_add == ("NET_ADMIN",)
+    assert c.cap_drop == ("ALL",)
+
+
+def test_parse_inspect_bad_mounts_and_ports_keep_valid_entries() -> None:
+    (c,) = parse_inspect(
+        [
+            {
+                "Mounts": [1, {"Source": 5, "Name": "vol", "Destination": [], "Mode": 1}],
+                "NetworkSettings": {
+                    "Ports": {
+                        "5432/tcp": [1, {"HostIp": 5, "HostPort": 80}, {"HostIp": "127.0.0.1"}],
+                    }
+                },
+            }
+        ]
+    )
+
+    assert c.mounts == (Mount("vol", "", "", True, ""),)
+    assert c.ports == (
+        PortBinding("", "", "5432/tcp"),  # wrong-typed HostIp/HostPort -> defaults
+        PortBinding("127.0.0.1", "", "5432/tcp"),
+    )
