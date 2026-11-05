@@ -9,6 +9,7 @@ secrets in environment variables, privileged mode, dangerous capabilities, mount
 shared host namespaces, outdated images and missing hardening — as a clean text, JSON or Markdown report.
 
 [![CI](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/docker-host-audit)](https://pypi.org/project/docker-host-audit/)
 ![defensive](https://img.shields.io/badge/purpose-defensive-blue)
 ![read-only](https://img.shields.io/badge/access-read--only-brightgreen)
 ![python](https://img.shields.io/badge/python-3.12%2B-informational)
