@@ -44,7 +44,7 @@ def _load(args: argparse.Namespace) -> list[Container] | None:
         objects = json.loads(Path(args.input).read_text(encoding="utf-8"))
         return parse_inspect(objects)
 
-    from ca.docker_cli import collect_running, docker_available  # ty: ignore[unresolved-import]
+    from ca.docker_cli import collect_running, docker_available
 
     if not docker_available():
         print("error: docker is not available (is it installed and running?)", file=sys.stderr)
