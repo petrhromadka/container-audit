@@ -57,7 +57,8 @@
     "Config": {
       "Image": "nginx:1.27",
       "User": "1000:1000",
-      "Env": ["NGINX_PORT=8080"]
+      "Env": ["NGINX_PORT=8080"],
+      "Healthcheck": {"Test": ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]}
     },
     "HostConfig": {
       "Privileged": false,

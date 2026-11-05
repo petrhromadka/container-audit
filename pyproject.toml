@@ -1,6 +1,6 @@
 [project]
 name = "docker-host-audit"
-version = "0.2.0"
+version = "0.3.0"
 description = "Read-only security audit for Docker hosts: flags root containers, exposed ports, secrets in env, privileged mode and mounted docker sockets."
 readme = "README.md"
 license = "MIT"

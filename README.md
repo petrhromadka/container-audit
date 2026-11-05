@@ -79,6 +79,17 @@ explanation, short **redacted** evidence, and a one-line remediation. See
 | 🔵 | `unpinned-image` | Image uses `:latest`, no tag, or no digest | Pulls aren't reproducible; upstream can silently change what runs. |
 | 🔵 | `unlimited-memory` | No memory limit set | A single container can exhaust host RAM and take the host down. |
 
+### Runtime hardening
+
+| | Check id | What | Why it matters |
+| :-: | --- | --- | --- |
+| 🟠 | `seccomp-unconfined` | `seccomp=unconfined` disables the default syscall filter | Widens the kernel attack surface available from inside the container. |
+| 🟡 | `apparmor-unconfined` | `apparmor=unconfined` disables the AppArmor profile | Drops mandatory access control confinement. |
+| 🔵 | `caps-not-dropped` | Capabilities are not dropped to `ALL` | The container keeps Docker's default cap set instead of least privilege. |
+| 🔵 | `no-healthcheck` | No container healthcheck is configured | Orchestration can't tell when the container is unhealthy. |
+
+See [docs/checks.md](docs/checks.md) for every check with full rationale and remediation.
+
 ---
 
 ## 📦 Install
