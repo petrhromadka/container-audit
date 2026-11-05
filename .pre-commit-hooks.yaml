@@ -1,0 +1,10 @@
+- id: container-audit
+  name: container-audit (docker-compose)
+  description: "Audit docker-compose.yml for insecure container configuration"
+  entry: container-audit --compose
+  language: python
+  files: '(^|/)docker-compose(\.[\w-]+)?\.ya?ml$'
+  args: ['--fail-on', 'high']
+  pass_filenames: true
+  require_serial: true
+  additional_dependencies: ['pyyaml>=6']
