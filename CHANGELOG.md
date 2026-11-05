@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05
+
 ### Added
 
 - Published to PyPI as `docker-host-audit` (the `container-audit` name was taken); both `container-audit` and `docker-host-audit` console scripts are installed.
