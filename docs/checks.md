@@ -61,6 +61,15 @@ container names, image names, ports and mount paths.
 | 🔵 | `caps-not-dropped` | Linux capabilities are not dropped to `ALL` before adding back only what is needed. | Keeping the default capability set grants more privileges than most workloads use, enlarging the attack surface. | Drop all capabilities (`cap_drop: [ALL]`) and add back only the ones the workload requires. |
 | 🔵 | `no-healthcheck` | The container defines no healthcheck. | Without a healthcheck, the orchestrator cannot tell a hung or unhealthy container from a working one, so failures go unnoticed. | Add a `HEALTHCHECK` to the image or a `healthcheck:` to the container configuration. |
 
+## Host resources
+
+| | Check id | What triggers it | Why it matters | Remediation |
+| :-: | --- | --- | --- | --- |
+| 🟡 | `host-devices` | Host devices are passed into the container (`HostConfig.Devices` is non-empty). | A passed-through device gives the container direct access to host hardware, which can be used to read or alter host state. | Remove the device passthrough unless the workload genuinely needs it. |
+| 🟡 | `shared-network-container` | The container shares another container's network namespace (`HostConfig.NetworkMode=container:<id>`). | The two containers share one network stack, so a compromise of one can observe or interfere with the other's traffic and bound ports. | Use a dedicated network (a user-defined bridge) instead of joining another container's namespace. |
+| 🟡 | `dangerous-sysctls` | Custom `kernel.*` or `net.*` sysctls are set (`HostConfig.Sysctls`). | Tuning kernel or network sysctls from inside a container can weaken host or network protections and widen the attack surface. | Drop the custom sysctls unless they are required; keep the runtime defaults. |
+| 🔵 | `oom-kill-disable` | The OOM killer is disabled for the container (`HostConfig.OomKillDisable=true`). | With the OOM killer disabled the container can hold memory under pressure and hang the host instead of being terminated. | Do not set `oom_kill_disable`; let the kernel reclaim memory under pressure. |
+
 ## Images
 
 | | Check id | What triggers it | Why it matters | Remediation |
@@ -70,5 +79,5 @@ container names, image names, ports and mount paths.
 
 ---
 
-**20 checks total:** 5 privilege &amp; escape, 5 namespaces &amp; exposure, 4 secrets &amp; hardening,
-4 runtime hardening, 2 images.
+**24 checks total:** 5 privilege &amp; escape, 5 namespaces &amp; exposure, 4 secrets &amp; hardening,
+4 runtime hardening, 4 host resources, 2 images.
