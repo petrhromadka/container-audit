@@ -8,11 +8,15 @@ import socket
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ca import __version__
 from ca.checks import get_checks
+from ca.config import load_config
 from ca.models import Container, Finding, Report, Severity
 from ca.report import render
+
+_DEFAULTS = {"format": "text", "fail_on": "none", "min_severity": "info"}
 
 _FAIL_LEVELS = {
     "low": Severity.LOW,
@@ -29,7 +33,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--version", action="version", version=f"container-audit {__version__}")
     p.add_argument("--input", metavar="PATH", help="JSON array of `docker inspect` objects")
-    p.add_argument("--format", choices=["text", "json", "markdown", "sarif"], default="text")
+    p.add_argument(
+        "--config",
+        metavar="PATH",
+        help="path to a TOML config file; otherwise container-audit.toml / "
+        ".container-audit.toml in the current directory is used",
+    )
+    p.add_argument("--format", choices=["text", "json", "markdown", "sarif"], default=None)
     p.add_argument("--include-stopped", action="store_true", help="also audit stopped containers")
     p.add_argument(
         "--ignore",
@@ -40,13 +50,13 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--fail-on",
         choices=["none", *_FAIL_LEVELS],
-        default="none",
+        default=None,
         help="exit 1 if any finding is at or above this severity",
     )
     p.add_argument(
         "--min-severity",
         choices=list(_MIN_LEVELS),
-        default="info",
+        default=None,
         help="hide findings below this severity from the report (--fail-on sees the same list)",
     )
     p.add_argument(
@@ -91,8 +101,26 @@ def _load(args: argparse.Namespace) -> list[Container] | None:
     return None
 
 
+def _apply_config(args: argparse.Namespace, config: dict[str, Any]) -> set[str]:
+    """Merge config into args (CLI flag > config > default) and return the ignore set."""
+    for key, default in _DEFAULTS.items():
+        if getattr(args, key) is None:
+            setattr(args, key, config.get(key, default))
+    for key in ("include_host", "include_stopped"):
+        if config.get(key):
+            setattr(args, key, True)
+    return set(args.ignore or []) | set(config.get("ignore", []))
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    try:
+        config = load_config(args.config, Path.cwd())
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    ignored = _apply_config(args, config)
+
     containers = _load(args)
     if containers is None:
         return 2
@@ -102,7 +130,6 @@ def main(argv: list[str] | None = None) -> int:
         findings.extend(check(containers))
     floor = _MIN_LEVELS[args.min_severity]
     findings = [f for f in findings if f.severity >= floor]
-    ignored = set(args.ignore or [])
     findings = [f for f in findings if f.check_id not in ignored]
 
     report = Report(
