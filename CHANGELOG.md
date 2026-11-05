@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-05
+
+### Added
+
+- `--compose PATH` audits a docker-compose.yml without a daemon (optional `[compose]` extra; mutually exclusive with `--input`).
+- Four host-resource checks: `host-devices`, `shared-network-container`, `dangerous-sysctls` (medium), `oom-kill-disable` (low) — 24 checks total.
+- Consumable pre-commit hook (`.pre-commit-hooks.yaml`) for auditing compose files in other repos.
+- Release workflow publishing the Docker image to GHCR; docs for compose, Docker image, and the hook.
+
 ## [0.3.0] - 2026-11-05
 
 ### Added

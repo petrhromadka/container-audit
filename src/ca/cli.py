@@ -34,6 +34,11 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version", version=f"container-audit {__version__}")
     p.add_argument("--input", metavar="PATH", help="JSON array of `docker inspect` objects")
     p.add_argument(
+        "--compose",
+        metavar="PATH",
+        help="audit a docker-compose.yml instead of a live host or --input",
+    )
+    p.add_argument(
         "--config",
         metavar="PATH",
         help="path to a TOML config file; otherwise container-audit.toml / "
@@ -68,6 +73,16 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _load_unchecked(args: argparse.Namespace) -> list[Container] | None:
+    if args.compose:
+        from ca.compose import parse_compose
+
+        try:
+            return parse_compose(args.compose)
+        except Exception as exc:
+            if type(exc).__module__.split(".", 1)[0] == "yaml":
+                raise ValueError(f"invalid compose file: {exc}") from exc
+            raise
+
     if args.input:
         from ca.collect import parse_inspect
 
@@ -114,6 +129,9 @@ def _apply_config(args: argparse.Namespace, config: dict[str, Any]) -> set[str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.input and args.compose:
+        print("error: use either --input or --compose, not both", file=sys.stderr)
+        return 2
     try:
         config = load_config(args.config, Path.cwd())
     except ValueError as exc:
