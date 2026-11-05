@@ -64,6 +64,7 @@ explanation, short **redacted** evidence, and a one-line remediation. See
 | :-: | --- | --- | --- |
 | 🟠 | `host-pid` | Shares the host PID namespace (`--pid=host`) | It can see and signal every process on the host. |
 | 🟠 | `host-network` | Shares the host network namespace (`--network=host`) | Network isolation and port mapping are bypassed. |
+| 🟡 | `shared-network-container` | Shares another container's network namespace (`--network=container:<id>`) | One compromised container can observe or interfere with the other's traffic and ports. |
 | 🟡 | `port-all-interfaces` | Port published on `0.0.0.0` / `::` | Reachable from every network the host is on, not just where you intend. |
 | 🟡 | `host-ipc` | Shares the host IPC namespace (`--ipc=host`) | Shared memory and semaphores cross the container boundary. |
 | 🔵 | `host-uts` | Shares the host UTS namespace (`--uts=host`) | It can change the host's hostname. |
@@ -87,6 +88,14 @@ explanation, short **redacted** evidence, and a one-line remediation. See
 | 🟡 | `apparmor-unconfined` | `apparmor=unconfined` disables the AppArmor profile | Drops mandatory access control confinement. |
 | 🔵 | `caps-not-dropped` | Capabilities are not dropped to `ALL` | The container keeps Docker's default cap set instead of least privilege. |
 | 🔵 | `no-healthcheck` | No container healthcheck is configured | Orchestration can't tell when the container is unhealthy. |
+
+### Host resources
+
+| | Check id | What | Why it matters |
+| :-: | --- | --- | --- |
+| 🟡 | `host-devices` | Host devices passed into the container (`HostConfig.Devices`) | Direct access to host hardware can be used to read or alter host state. |
+| 🟡 | `dangerous-sysctls` | Custom `kernel.*` / `net.*` sysctls set | Tuning kernel or network sysctls from inside can weaken host and network protections. |
+| 🔵 | `oom-kill-disable` | The OOM killer is disabled | The container can hold memory under pressure and hang the host instead of being killed. |
 
 See [docs/checks.md](docs/checks.md) for every check with full rationale and remediation.
 
@@ -131,11 +140,18 @@ container-audit --format markdown > report.md              # for an issue / PR /
 
 docker inspect $(docker ps -aq) $(docker inspect -f '{{.Image}}' $(docker ps -aq) | sort -u) > sample.json  # save containers + their images
 container-audit --input sample.json --fail-on high         # audit the dump; non-zero exit for CI
+
+container-audit --compose docker-compose.yml --fail-on high # audit a compose file, no daemon needed
 ```
+
+Auditing a compose file needs the optional `[compose]` extra:
+`pip install docker-host-audit[compose]` (or `uvx --from docker-host-audit[compose] container-audit`).
+See [docs/compose.md](docs/compose.md).
 
 | Flag | Meaning |
 | --- | --- |
 | `--input FILE` | Read `docker inspect` JSON from `FILE` instead of calling Docker. |
+| `--compose PATH` | Statically audit a `docker-compose.yml` without a running daemon (needs the `[compose]` extra). Mutually exclusive with `--input`. |
 | `--format FORMAT` | Output format: `text` (default), `json`, `markdown` or `sarif`. |
 | `--ignore CHECK_ID` | Suppress findings with this check id (e.g. `docker-socket-mount`). Repeatable. |
 | `--include-stopped` | Also inspect containers that are not running. |
@@ -290,6 +306,7 @@ register it in the `CHECKS` list of the relevant module under `src/ca/checks/`.
 ## 📚 Documentation
 
 - [docs/checks.md](docs/checks.md) — reference for every check, with severity, trigger, rationale and remediation.
+- [docs/compose.md](docs/compose.md) — auditing a `docker-compose.yml` with `--compose`, without a daemon.
 - [docs/configuration.md](docs/configuration.md) — the optional config file and its settings.
 - [docs/github-action.md](docs/github-action.md) — the reusable GitHub Action for CI.
 
