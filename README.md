@@ -45,7 +45,8 @@ reads live containers via `docker ps` / `docker inspect`.
 ## 🔍 What it checks
 
 Severity key: 🔴 critical · 🟠 high · 🟡 medium · 🔵 low. Each finding carries a title, a plain-language
-explanation, short **redacted** evidence, and a one-line remediation.
+explanation, short **redacted** evidence, and a one-line remediation. See
+[docs/checks.md](docs/checks.md) for every check with rationale and remediation.
 
 ### Privilege &amp; escape
 
@@ -272,6 +273,14 @@ scan over the full history.
 
 To add a check, write a function that takes `list[Container]` and yields `Finding` objects, then
 register it in the `CHECKS` list of the relevant module under `src/ca/checks/`.
+
+---
+
+## 📚 Documentation
+
+- [docs/checks.md](docs/checks.md) — reference for every check, with severity, trigger, rationale and remediation.
+- [docs/configuration.md](docs/configuration.md) — the optional config file and its settings.
+- [docs/github-action.md](docs/github-action.md) — the reusable GitHub Action for CI.
 
 ---
 
