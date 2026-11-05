@@ -1,0 +1,54 @@
+name: container-audit
+description: Read-only security audit of Docker containers / a saved docker inspect dump.
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  input:
+    description: Path to a `docker inspect` JSON array. Empty means audit the live Docker host.
+    required: false
+    default: ""
+  format:
+    description: Output format (text, json, markdown, sarif).
+    required: false
+    default: text
+  fail-on:
+    description: Exit non-zero if any finding is at or above this severity (none, low, medium, high, critical).
+    required: false
+    default: none
+  min-severity:
+    description: Hide findings below this severity (info, low, medium, high, critical).
+    required: false
+    default: info
+  ignore:
+    description: Check ids to suppress, space- or newline-separated.
+    required: false
+    default: ""
+  version:
+    description: docker-host-audit version/spec to install (e.g. 0.2.0). Empty means latest.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - shell: bash
+      env:
+        INPUT: ${{ inputs.input }}
+        FORMAT: ${{ inputs.format }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        MIN_SEVERITY: ${{ inputs.min-severity }}
+        IGNORE: ${{ inputs.ignore }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        args=(--format "$FORMAT" --fail-on "$FAIL_ON" --min-severity "$MIN_SEVERITY")
+        if [ -n "$INPUT" ]; then
+          args+=(--input "$INPUT")
+        fi
+        for id in $IGNORE; do
+          args+=(--ignore "$id")
+        done
+        uvx "docker-host-audit${VERSION:+==$VERSION}" "${args[@]}"

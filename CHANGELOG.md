@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
+### Added
+
+- TOML config file (`--config`, or `container-audit.toml` / `.container-audit.toml`) for the ignore list and default options.
+- Four runtime hardening checks: `seccomp-unconfined`, `apparmor-unconfined`, `caps-not-dropped`, `no-healthcheck` (20 checks total).
+- Reusable composite GitHub Action (`action.yml`) and `docs/github-action.md`.
+- Full checks reference (`docs/checks.md`), config docs, issue/PR templates, and a `justfile`.
+
+### Changed
+
+- Sample fixture `good-web` gained a healthcheck so it stays finding-free.
+
 ## [0.2.0] - 2026-11-05
 
 ### Added

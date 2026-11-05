@@ -45,7 +45,8 @@ reads live containers via `docker ps` / `docker inspect`.
 ## 🔍 What it checks
 
 Severity key: 🔴 critical · 🟠 high · 🟡 medium · 🔵 low. Each finding carries a title, a plain-language
-explanation, short **redacted** evidence, and a one-line remediation.
+explanation, short **redacted** evidence, and a one-line remediation. See
+[docs/checks.md](docs/checks.md) for every check with rationale and remediation.
 
 ### Privilege &amp; escape
 
@@ -77,6 +78,17 @@ explanation, short **redacted** evidence, and a one-line remediation.
 | 🟡 | `stale-image` | Image was built more than 180 days ago | Old images usually miss security patches released since; rebuild or pull a current one. |
 | 🔵 | `unpinned-image` | Image uses `:latest`, no tag, or no digest | Pulls aren't reproducible; upstream can silently change what runs. |
 | 🔵 | `unlimited-memory` | No memory limit set | A single container can exhaust host RAM and take the host down. |
+
+### Runtime hardening
+
+| | Check id | What | Why it matters |
+| :-: | --- | --- | --- |
+| 🟠 | `seccomp-unconfined` | `seccomp=unconfined` disables the default syscall filter | Widens the kernel attack surface available from inside the container. |
+| 🟡 | `apparmor-unconfined` | `apparmor=unconfined` disables the AppArmor profile | Drops mandatory access control confinement. |
+| 🔵 | `caps-not-dropped` | Capabilities are not dropped to `ALL` | The container keeps Docker's default cap set instead of least privilege. |
+| 🔵 | `no-healthcheck` | No container healthcheck is configured | Orchestration can't tell when the container is unhealthy. |
+
+See [docs/checks.md](docs/checks.md) for every check with full rationale and remediation.
 
 ---
 
@@ -272,6 +284,14 @@ scan over the full history.
 
 To add a check, write a function that takes `list[Container]` and yields `Finding` objects, then
 register it in the `CHECKS` list of the relevant module under `src/ca/checks/`.
+
+---
+
+## 📚 Documentation
+
+- [docs/checks.md](docs/checks.md) — reference for every check, with severity, trigger, rationale and remediation.
+- [docs/configuration.md](docs/configuration.md) — the optional config file and its settings.
+- [docs/github-action.md](docs/github-action.md) — the reusable GitHub Action for CI.
 
 ---
 
