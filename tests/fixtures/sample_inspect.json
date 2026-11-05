@@ -18,6 +18,7 @@
       "CapAdd": ["SYS_ADMIN"],
       "CapDrop": null,
       "PidMode": "",
+      "IpcMode": "host",
       "NetworkMode": "bridge",
       "ReadonlyRootfs": false,
       "RestartPolicy": {"Name": "always", "MaximumRetryCount": 0}
@@ -63,8 +64,12 @@
       "CapAdd": null,
       "CapDrop": ["ALL"],
       "PidMode": "",
+      "IpcMode": "private",
+      "UTSMode": "",
       "NetworkMode": "bridge",
       "ReadonlyRootfs": true,
+      "Memory": 536870912,
+      "SecurityOpt": ["no-new-privileges:true"],
       "RestartPolicy": {"Name": "unless-stopped", "MaximumRetryCount": 0}
     },
     "Mounts": [

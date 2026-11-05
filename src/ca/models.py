@@ -66,7 +66,7 @@ class Container:
     readonly_rootfs: bool
     ports: tuple[PortBinding, ...]
     mounts: tuple[Mount, ...]
-    env: tuple[str, ...]  # raw "KEY=VALUE" strings
+    env: tuple[str, ...] = field(repr=False)  # raw "KEY=VALUE"; repr hidden so secrets never leak
     restart_policy: str
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
