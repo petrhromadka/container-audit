@@ -9,6 +9,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Published to PyPI as `docker-host-audit` (the `container-audit` name was taken); both `container-audit` and `docker-host-audit` console scripts are installed.
 - `Dockerfile` and `.dockerignore` to run the tool from a container image.
 - CI test matrix across Python 3.12, 3.13 and 3.14.
 - `publish.yml` workflow to publish to PyPI on release via Trusted Publishing (OIDC).
