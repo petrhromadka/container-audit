@@ -94,7 +94,75 @@ def _markdown(report: Report) -> str:
     return "\n".join(lines) + "\n"
 
 
-_RENDERERS = {"text": _text, "json": _json, "markdown": _markdown}
+def _sarif_level(severity: Severity) -> str:
+    if severity >= Severity.HIGH:
+        return "error"
+    if severity == Severity.MEDIUM:
+        return "warning"
+    return "note"
+
+
+def _sarif(report: Report) -> str:
+    findings = _sorted(report.findings)
+    rules = []
+    seen: set[str] = set()
+    for f in findings:
+        check_id = _sanitize(f.check_id)
+        if check_id in seen:
+            continue
+        seen.add(check_id)
+        rules.append(
+            {
+                "id": check_id,
+                "name": check_id,
+                "shortDescription": {"text": _sanitize(f.title)},
+                "defaultConfiguration": {"level": _sarif_level(f.severity)},
+            }
+        )
+    results = [
+        {
+            "ruleId": _sanitize(f.check_id),
+            "level": _sarif_level(f.severity),
+            "message": {"text": _sanitize(f.detail)},
+            # Findings are about a container's runtime config, not a source file.
+            # GitHub code scanning requires at least one location per result, so we
+            # point at a synthetic per-container path and also record a logical location.
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f"containers/{_sanitize(f.container)}"}
+                    },
+                    "logicalLocations": [{"name": _sanitize(f.container), "kind": "resource"}],
+                }
+            ],
+            "properties": {
+                "container": _sanitize(f.container),
+                "evidence": _sanitize(f.evidence),
+                "remediation": _sanitize(f.remediation),
+            },
+        }
+        for f in findings
+    ]
+    data = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "container-audit",
+                        "informationUri": "https://github.com/petrhromadka/container-audit",
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+            }
+        ],
+    }
+    return json.dumps(data, indent=2, sort_keys=False)
+
+
+_RENDERERS = {"text": _text, "json": _json, "markdown": _markdown, "sarif": _sarif}
 
 
 def render(report: Report, fmt: str = "text") -> str:

@@ -6,7 +6,7 @@
 
 Point it at your containers and it reports the risky configuration — root users, exposed ports,
 secrets in environment variables, privileged mode, dangerous capabilities, mounted Docker sockets,
-shared host namespaces, outdated images and missing hardening — as a clean text, JSON or Markdown report.
+shared host namespaces, outdated images and missing hardening — as a clean text, JSON, Markdown or SARIF report.
 
 [![CI](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/docker-host-audit)](https://pypi.org/project/docker-host-audit/)
@@ -124,7 +124,8 @@ container-audit --input sample.json --fail-on high         # audit the dump; non
 | Flag | Meaning |
 | --- | --- |
 | `--input FILE` | Read `docker inspect` JSON from `FILE` instead of calling Docker. |
-| `--format FORMAT` | Output format: `text` (default), `json` or `markdown`. |
+| `--format FORMAT` | Output format: `text` (default), `json`, `markdown` or `sarif`. |
+| `--ignore CHECK_ID` | Suppress findings with this check id (e.g. `docker-socket-mount`). Repeatable. |
 | `--include-stopped` | Also inspect containers that are not running. |
 | `--include-host` | Include the real hostname in the report (off by default, so output is safe to share). |
 | `--min-severity LEVEL` | Hide findings below `LEVEL` (`info`, `low`, `medium`, `high`, `critical`). Default `info` (show all). |
@@ -156,6 +157,20 @@ ports on `0.0.0.0` and keep passwords in environment variables.
       container-audit --input containers.json --fail-on high
 ```
 
+### GitHub code scanning (SARIF)
+
+`--format sarif` renders the findings as [SARIF](https://sarifweb.azurewebsites.net/), the format
+GitHub reads for code scanning. Each finding becomes a result keyed by its check id, so they show up
+in the repository's **Security → Code scanning** tab with severity and remediation.
+
+```bash
+container-audit --input sample.json --format sarif > results.sarif
+```
+
+The bundled [`security-scan.yml`](.github/workflows/security-scan.yml) workflow does exactly this on
+every push and pull request and uploads `results.sarif` via `github/codeql-action/upload-sarif`, so
+findings surface in the Security tab without failing the build.
+
 ---
 
 ## ⚙️ How it works
@@ -169,7 +184,7 @@ docker ps / docker inspect  ->  parse into Container objects  ->  run checks  ->
    parse a saved copy via `--input`).
 2. **Check** — each check is a pure function over the parsed containers that yields findings. Checks
    never talk to Docker and never change anything.
-3. **Report** — findings are sorted by severity and rendered as text, JSON or Markdown; with
+3. **Report** — findings are sorted by severity and rendered as text, JSON, Markdown or SARIF; with
    `--fail-on`, the exit code reflects the worst severity found.
 
 <details>
