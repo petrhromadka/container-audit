@@ -68,6 +68,7 @@ class Container:
     mounts: tuple[Mount, ...]
     env: tuple[str, ...] = field(repr=False)  # raw "KEY=VALUE"; repr hidden so secrets never leak
     restart_policy: str
+    image_created: str = ""  # image build time from `docker image inspect`; "" if unknown
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @property

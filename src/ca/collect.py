@@ -57,7 +57,7 @@ def _parse_mounts(mounts: Any) -> tuple[Mount, ...]:
     return tuple(result)
 
 
-def _parse_one(obj: dict[str, Any]) -> Container:
+def _parse_one(obj: dict[str, Any], image_created: dict[str, str]) -> Container:
     config = _as_dict(obj.get("Config"))
     host_config = _as_dict(obj.get("HostConfig"))
     state = _as_dict(obj.get("State"))
@@ -81,10 +81,22 @@ def _parse_one(obj: dict[str, Any]) -> Container:
         mounts=_parse_mounts(obj.get("Mounts")),
         env=_str_items(config.get("Env")),
         restart_policy=_as_str(restart.get("Name")),
+        image_created=image_created.get(_as_str(obj.get("Image")), ""),
         raw=obj,
     )
 
 
+def _is_image(obj: dict[str, Any]) -> bool:
+    """Image inspect objects carry RootFS; container objects never do."""
+    return "RootFS" in obj
+
+
 def parse_inspect(objects: list[dict]) -> list[Container]:
-    """Parse `docker inspect` JSON objects into Container models; non-dict items are skipped."""
-    return [_parse_one(o) for o in objects if isinstance(o, dict)]
+    """Parse `docker inspect` JSON objects into Container models; non-dict items are skipped.
+
+    Image objects (from `docker image inspect`) may be mixed in; they are not containers but
+    supply each container's image build time.
+    """
+    dicts = [o for o in objects if isinstance(o, dict)]
+    image_created = {_as_str(o.get("Id")): _as_str(o.get("Created")) for o in dicts if _is_image(o)}
+    return [_parse_one(o, image_created) for o in dicts if not _is_image(o)]

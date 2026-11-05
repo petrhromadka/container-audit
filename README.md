@@ -6,7 +6,7 @@
 
 Point it at your containers and it reports the risky configuration — root users, exposed ports,
 secrets in environment variables, privileged mode, dangerous capabilities, mounted Docker sockets,
-shared host namespaces and missing hardening — as a clean text, JSON or Markdown report.
+shared host namespaces, outdated images and missing hardening — as a clean text, JSON or Markdown report.
 
 [![CI](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml)
 ![defensive](https://img.shields.io/badge/purpose-defensive-blue)
@@ -35,7 +35,7 @@ cd container-audit
 uv run container-audit --input tests/fixtures/sample_inspect.json
 ```
 
-You'll see ten findings on the intentionally-insecure `bad-db` container and a clean bill of health
+You'll see eleven findings on the intentionally-insecure `bad-db` container and a clean bill of health
 for the hardened `good-web` one. To scan your own host instead, just run `container-audit` — it
 reads live containers via `docker ps` / `docker inspect`.
 
@@ -73,6 +73,7 @@ explanation, short **redacted** evidence, and a one-line remediation.
 | 🟠 | `secret-in-env` | Env var that looks like a secret, or a URL with embedded credentials | Secrets in env vars leak via `docker inspect`, logs and child processes. |
 | 🟡 | `no-new-privileges-missing` | `no-new-privileges:true` is not set | setuid binaries inside the container can still escalate privileges. |
 | 🔵 | `writable-rootfs` | Root filesystem is writable (not `read_only`) | An attacker can persist changes and tooling. |
+| 🟡 | `stale-image` | Image was built more than 180 days ago | Old images usually miss security patches released since; rebuild or pull a current one. |
 | 🔵 | `unpinned-image` | Image uses `:latest`, no tag, or no digest | Pulls aren't reproducible; upstream can silently change what runs. |
 | 🔵 | `unlimited-memory` | No memory limit set | A single container can exhaust host RAM and take the host down. |
 
@@ -102,7 +103,7 @@ on stdin:
 
 ```bash
 docker build -t container-audit .
-docker inspect $(docker ps -aq) | docker run --rm -i container-audit --input /dev/stdin --fail-on high
+docker inspect $(docker ps -aq) $(docker inspect -f '{{.Image}}' $(docker ps -aq) | sort -u) | docker run --rm -i container-audit --input /dev/stdin --fail-on high
 ```
 
 ---
@@ -115,8 +116,8 @@ container-audit --include-stopped                          # include stopped one
 container-audit --format json                              # machine-readable output
 container-audit --format markdown > report.md              # for an issue / PR / wiki
 
-docker inspect $(docker ps -aq) > sample.json              # audit a saved dump, no live Docker
-container-audit --input sample.json --fail-on high         # non-zero exit for CI gating
+docker inspect $(docker ps -aq) $(docker inspect -f '{{.Image}}' $(docker ps -aq) | sort -u) > sample.json  # save containers + their images
+container-audit --input sample.json --fail-on high         # audit the dump; non-zero exit for CI
 ```
 
 | Flag | Meaning |
@@ -132,12 +133,24 @@ container-audit --input sample.json --fail-on high         # non-zero exit for C
 **Exit codes:** `0` clean (nothing reached `--fail-on`) · `1` a finding met `--fail-on` · `2` could
 not run (Docker unavailable, or a missing/invalid `--input` file).
 
+Image age comes from `docker inspect --type image`. If an image was deleted while its container
+still runs, or the dump has no image objects, the age is unknown and `stale-image` skips that
+container. Images from reproducible builds (distroless, ko, Nix) carry a fixed 1970 date and are
+skipped too.
+
+### Coolify and other self-hosted PaaS
+
+It works unchanged on a [Coolify](https://coolify.io) host. Expect `docker-socket-mount` on Coolify's
+own `coolify-proxy` (Traefik) and `coolify-sentinel` containers: they need the socket by design. Review
+everything else, especially apps you deployed from public templates, which often publish database
+ports on `0.0.0.0` and keep passwords in environment variables.
+
 ### Use in CI
 
 ```yaml
 - name: Audit containers
   run: |
-    docker inspect $(docker ps -aq) > containers.json
+    docker inspect $(docker ps -aq) $(docker inspect -f '{{.Image}}' $(docker ps -aq) | sort -u) > containers.json
     uvx --from git+https://github.com/petrhromadka/container-audit \
       container-audit --input containers.json --fail-on high
 ```
@@ -166,7 +179,7 @@ container-audit report
 Host:      (redacted)
 Scanned:   2 container(s)
 Timestamp: 2026-11-05T19:32:19+00:00
-Findings:  10 (critical=2, high=3, medium=3, low=2, info=0)
+Findings:  11 (critical=2, high=3, medium=4, low=2, info=0)
 
 [CRITICAL] docker-socket-mount  bad-db - Access to the Docker socket grants control of the Docker daemon, and therefore of the host.
     evidence:    /var/run/docker.sock -> /var/run/docker.sock (rw)
@@ -192,6 +205,9 @@ Findings:  10 (critical=2, high=3, medium=3, low=2, info=0)
 [MEDIUM] port-all-interfaces  bad-db - The port is reachable from every network the host is attached to.
     evidence:    0.0.0.0:5432 -> 5432/tcp
     remediation: Bind to 127.0.0.1 (e.g. 127.0.0.1:<port>:<port>) unless public.
+[MEDIUM] stale-image  bad-db - The image is 1390 days old, so it likely lacks security patches released since it was built.
+    evidence:    image built 2023-01-15 (1390 days ago)
+    remediation: Pull or rebuild the image on a current base and recreate the container; automate updates (e.g. Renovate, Dependabot).
 [LOW] unlimited-memory  bad-db - With no memory limit, one container can exhaust the host's RAM.
     evidence:    HostConfig.Memory=0
     remediation: Set a memory limit (`mem_limit` in compose).

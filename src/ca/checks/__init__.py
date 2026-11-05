@@ -7,6 +7,6 @@ from ca.models import CheckFn
 
 def get_checks() -> list[CheckFn]:
     """Every registered check, across all submodules."""
-    from ca.checks import exposure, hardening, privilege
+    from ca.checks import exposure, hardening, images, privilege
 
-    return [*privilege.CHECKS, *exposure.CHECKS, *hardening.CHECKS]
+    return [*privilege.CHECKS, *exposure.CHECKS, *hardening.CHECKS, *images.CHECKS]
