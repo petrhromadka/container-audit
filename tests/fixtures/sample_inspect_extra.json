@@ -1,0 +1,44 @@
+[
+  {
+    "Id": "0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9",
+    "Name": "/legacy-cache",
+    "Image": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "State": {"Status": "running", "Running": true},
+    "Config": {
+      "Image": "redis:latest",
+      "User": "999:999",
+      "Env": [
+        "DATABASE_URL=postgres://u:s3cr3t@db.example.invalid:5432/app",
+        "KEY=abcdef",
+        "REDIS_PORT=6379",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      ]
+    },
+    "HostConfig": {
+      "Privileged": false,
+      "CapAdd": null,
+      "CapDrop": ["ALL"],
+      "PidMode": "host",
+      "IpcMode": "private",
+      "UTSMode": "host",
+      "NetworkMode": "host",
+      "ReadonlyRootfs": true,
+      "Memory": 268435456,
+      "SecurityOpt": ["no-new-privileges:true"],
+      "RestartPolicy": {"Name": "unless-stopped", "MaximumRetryCount": 0}
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/etc",
+        "Destination": "/host-etc",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": "rprivate"
+      }
+    ],
+    "NetworkSettings": {
+      "Ports": {}
+    }
+  }
+]
