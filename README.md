@@ -5,6 +5,7 @@ configuration: root users, exposed ports, secrets in environment variables, priv
 dangerous capabilities, mounted Docker sockets, sensitive host mounts, shared host namespaces,
 missing hardening options and unpinned images.
 
+[![CI](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml)
 ![defensive](https://img.shields.io/badge/purpose-defensive-blue)
 ![read-only](https://img.shields.io/badge/access-read--only-brightgreen)
 ![python](https://img.shields.io/badge/python-3.12%2B-informational)
@@ -13,6 +14,22 @@ missing hardening options and unpinned images.
 > **Defensive and read-only.** container-audit only runs `docker ps` and `docker inspect` (or
 > reads a saved copy of that JSON). It never starts, stops, or modifies a container, and it never
 > sends data anywhere.
+
+---
+
+## Quick start
+
+No Docker needed to try it — the repo ships a sample `docker inspect` dump:
+
+```bash
+git clone https://github.com/petrhromadka/container-audit
+cd container-audit
+uv run container-audit --input tests/fixtures/sample_inspect.json
+```
+
+You'll see ten findings on the intentionally-insecure `bad-db` container and a clean bill of
+health for the hardened `good-web` one. To scan your own host instead, just run `container-audit`
+(it reads live containers via `docker ps` / `docker inspect`).
 
 ---
 
@@ -85,6 +102,26 @@ container-audit --fail-on high
 | `--include-stopped` | Also inspect containers that are not running.                                      |
 | `--include-host`    | Include the real hostname in the report (off by default, so output is safe to share). |
 | `--fail-on LEVEL`   | Exit non-zero if any finding is at or above `LEVEL` (`none`, `low`, `medium`, `high`, `critical`). Default `none`. |
+
+### Exit codes
+
+| Code | Meaning                                                                     |
+| ---- | --------------------------------------------------------------------------- |
+| `0`  | Ran successfully; no finding reached the `--fail-on` threshold.             |
+| `1`  | Ran successfully, but a finding was at or above `--fail-on`.                |
+| `2`  | Could not run: Docker unavailable, or the `--input` file was missing/invalid. |
+
+### Use in CI
+
+Gate a pipeline on the audit by scanning a saved inspect dump and failing on high-severity issues:
+
+```yaml
+- name: Audit containers
+  run: |
+    docker inspect $(docker ps -aq) > containers.json
+    uvx --from git+https://github.com/petrhromadka/container-audit \
+      container-audit --input containers.json --fail-on high
+```
 
 ## How it works
 
