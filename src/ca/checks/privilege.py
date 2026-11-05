@@ -22,7 +22,7 @@ def _is_docker_sock(mount: Mount) -> bool:
 
 
 def _is_sensitive_source(source: str) -> bool:
-    return source in SENSITIVE_SOURCES or source.startswith("/home")
+    return source in SENSITIVE_SOURCES or source == "/home" or source.startswith("/home/")
 
 
 def privileged(containers: list[Container]) -> Iterable[Finding]:

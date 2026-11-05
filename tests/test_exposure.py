@@ -83,3 +83,20 @@ def test_unpinned_image() -> None:
     assert list(unpinned_image([make(image=digest)])) == []
     assert list(unpinned_image([make(image="nginx:1.27")])) == []
     assert list(unpinned_image([make(image="localhost:5000/app:2.0")])) == []
+
+
+def test_secret_in_env_detects_url_credentials() -> None:
+    findings = list(secret_in_env([make(env=("DATABASE_URL=postgres://u:s3cr3t@db:5432/app",))]))
+    assert len(findings) == 1
+    assert findings[0].evidence == "DATABASE_URL=***"
+    assert "s3cr3t" not in findings[0].evidence
+    # A URL without embedded credentials is not flagged.
+    assert list(secret_in_env([make(env=("APP_URL=https://example.com/app",))])) == []
+
+
+def test_secret_in_env_matches_bare_key_name() -> None:
+    assert [f.evidence for f in secret_in_env([make(env=("KEY=abcdef",))])] == ["KEY=***"]
+
+
+def test_unpinned_image_ignores_empty_image() -> None:
+    assert list(unpinned_image([make(image="")])) == []

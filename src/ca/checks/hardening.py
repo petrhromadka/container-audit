@@ -60,7 +60,11 @@ def host_uts(containers: list[Container]) -> Iterable[Finding]:
 def no_new_privileges_missing(containers: list[Container]) -> Iterable[Finding]:
     for c in containers:
         security_opt = _host_config(c).get("SecurityOpt") or []
-        if not any(str(opt).startswith("no-new-privileges") for opt in security_opt):
+        enabled = any(
+            str(opt).strip().lower().replace("=", ":") == "no-new-privileges:true"
+            for opt in security_opt
+        )
+        if not enabled:
             yield Finding(
                 check_id="no-new-privileges-missing",
                 title="no-new-privileges is not set",

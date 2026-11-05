@@ -102,3 +102,14 @@ def test_registered_in_get_checks() -> None:
     bad = make(network_mode="host", raw={})
     found = {f.check_id for check in checks for f in check([bad])}
     assert {"host-network", "no-new-privileges-missing", "unlimited-memory"} <= found
+
+
+def test_no_new_privileges_false_counts_as_missing() -> None:
+    expected = [("no-new-privileges-missing", Severity.MEDIUM, "app")]
+    assert (
+        ids(
+            hardening.no_new_privileges_missing,
+            [with_host_config(SecurityOpt=["no-new-privileges:false"])],
+        )
+        == expected
+    )

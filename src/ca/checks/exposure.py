@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from ca.models import CheckFn, Container, Finding, Severity
 from ca.redact import mask
+
+# Matches credentials embedded in a URL, e.g. postgres://user:pass@host/db.
+_URL_CREDENTIAL = re.compile(r"://[^/@:\s]+:[^/@\s]+@")
 
 _SECRET_MARKERS = (
     "PASSWORD",
@@ -25,7 +29,11 @@ _PLACEHOLDER_PREFIXES = ("${", "/run/secrets/")
 
 def _is_secret_name(key: str) -> bool:
     upper = key.upper()
-    return upper.endswith("_KEY") or any(marker in upper for marker in _SECRET_MARKERS)
+    return (
+        upper == "KEY"
+        or upper.endswith("_KEY")
+        or any(marker in upper for marker in _SECRET_MARKERS)
+    )
 
 
 def _is_placeholder(value: str) -> bool:
@@ -38,7 +46,7 @@ def _is_placeholder(value: str) -> bool:
 
 
 def _is_unpinned(image: str) -> bool:
-    if "@" in image:
+    if not image or "@" in image:
         return False
     last_segment = image.rsplit("/", 1)[-1]  # a colon before the last "/" is a registry port
     _, sep, tag = last_segment.partition(":")
@@ -49,7 +57,9 @@ def secret_in_env(containers: list[Container]) -> Iterable[Finding]:
     for c in containers:
         for entry in c.env:
             key, sep, value = entry.partition("=")
-            if not sep or not _is_secret_name(key) or _is_placeholder(value):
+            if not sep or _is_placeholder(value):
+                continue
+            if not _is_secret_name(key) and not _URL_CREDENTIAL.search(value):
                 continue
             yield Finding(
                 check_id="secret-in-env",
