@@ -10,17 +10,24 @@ from typing import Any
 from ca.collect import parse_inspect
 from ca.models import Container
 
+_INSPECT_CHUNK = 100
+
+
+def _docker_path() -> str | None:
+    return shutil.which("docker")
+
 
 def docker_available() -> bool:
-    return shutil.which("docker") is not None
+    return _docker_path() is not None
 
 
 def _run(args: list[str]) -> str:
-    if not docker_available():
+    path = _docker_path()
+    if path is None:
         raise RuntimeError("docker executable not found in PATH")
     try:
         proc = subprocess.run(
-            ["docker", *args],
+            [path, *args],
             capture_output=True,
             text=True,
             check=False,
@@ -41,12 +48,16 @@ def inspect_json(ids: list[str]) -> list[dict[str, Any]]:
     """Run `docker inspect` on the given container ids and return the parsed JSON."""
     if not ids:
         return []
-    out = _run(["inspect", "--type", "container", "--", *ids])
-    try:
-        data = json.loads(out)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"docker inspect returned invalid JSON: {exc}") from exc
-    return data
+    result: list[dict[str, Any]] = []
+    for start in range(0, len(ids), _INSPECT_CHUNK):
+        chunk = ids[start : start + _INSPECT_CHUNK]
+        out = _run(["inspect", "--type", "container", "--", *chunk])
+        try:
+            data = json.loads(out)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"docker inspect returned invalid JSON: {exc}") from exc
+        result.extend(data)
+    return result
 
 
 def collect_running(include_stopped: bool = False) -> list[Container]:
