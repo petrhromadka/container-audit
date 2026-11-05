@@ -72,3 +72,31 @@ def test_sarif_empty() -> None:
     data = json.loads(render(Report(host="h", scanned=0, findings=[], timestamp="t"), "sarif"))
     assert data["runs"][0]["results"] == []
     assert data["runs"][0]["tool"]["driver"]["rules"] == []
+
+
+def test_sarif_results_have_locations() -> None:
+    """GitHub code scanning requires at least one location per result."""
+    import json as _json
+
+    from ca.models import Finding, Report, Severity
+
+    report = Report(
+        host="(redacted)",
+        scanned=1,
+        findings=[
+            Finding(
+                check_id="privileged",
+                title="Privileged mode",
+                severity=Severity.CRITICAL,
+                container="db",
+                detail="runs privileged",
+                evidence="HostConfig.Privileged=true",
+                remediation="drop privileged",
+            )
+        ],
+        timestamp="2026-11-05T00:00:00+00:00",
+    )
+    data = _json.loads(render(report, "sarif"))
+    for result in data["runs"][0]["results"]:
+        assert result["locations"], "every result needs at least one location"
+        assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]

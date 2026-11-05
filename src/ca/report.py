@@ -124,6 +124,17 @@ def _sarif(report: Report) -> str:
             "ruleId": _sanitize(f.check_id),
             "level": _sarif_level(f.severity),
             "message": {"text": _sanitize(f.detail)},
+            # Findings are about a container's runtime config, not a source file.
+            # GitHub code scanning requires at least one location per result, so we
+            # point at a synthetic per-container path and also record a logical location.
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f"containers/{_sanitize(f.container)}"}
+                    },
+                    "logicalLocations": [{"name": _sanitize(f.container), "kind": "resource"}],
+                }
+            ],
             "properties": {
                 "container": _sanitize(f.container),
                 "evidence": _sanitize(f.evidence),
