@@ -9,6 +9,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `Dockerfile` and `.dockerignore` to run the tool from a container image.
+- CI test matrix across Python 3.12, 3.13 and 3.14.
+- `publish.yml` workflow to publish to PyPI on release via Trusted Publishing (OIDC).
 - `py.typed` marker so type checkers treat the package as typed (PEP 561).
 - `CONTRIBUTING.md` and this changelog.
 
