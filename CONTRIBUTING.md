@@ -29,11 +29,11 @@ uv run pytest                # tests
 ## Running the tool locally
 
 ```bash
-uv run python -m ca.cli --input tests/fixtures/sample_inspect.json
+uv run python -m ca --input tests/fixtures/sample_inspect.json
 ```
 
 On Windows, Smart App Control may block the generated `container-audit.exe` console script. Use
-`python -m ca.cli` or `uv run python -m ca.cli` instead.
+`python -m ca` or `uv run python -m ca` instead.
 
 ## Adding a check
 

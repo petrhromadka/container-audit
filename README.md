@@ -87,7 +87,11 @@ a live host; auditing a saved file with `--input` does not need it.
 uv tool install .                 # install as a tool from a checkout
 uvx --from . container-audit      # or run without installing
 uv run container-audit            # or run inside the project environment
+uv run python -m ca               # module form (use this if the console script is blocked)
 ```
+
+> On Windows, Smart App Control may block the generated `container-audit.exe` launcher. Run the
+> tool as a module instead: `python -m ca` (or `uv run python -m ca`).
 
 ---
 
@@ -109,7 +113,9 @@ container-audit --input sample.json --fail-on high         # non-zero exit for C
 | `--format FORMAT` | Output format: `text` (default), `json` or `markdown`. |
 | `--include-stopped` | Also inspect containers that are not running. |
 | `--include-host` | Include the real hostname in the report (off by default, so output is safe to share). |
-| `--fail-on LEVEL` | Exit non-zero if any finding is at or above `LEVEL` (`none`, `low`, `medium`, `high`, `critical`). Default `none`. |
+| `--min-severity LEVEL` | Hide findings below `LEVEL` (`info`, `low`, `medium`, `high`, `critical`). Default `info` (show all). |
+| `--fail-on LEVEL` | Exit non-zero if any shown finding is at or above `LEVEL` (`none`, `low`, `medium`, `high`, `critical`). Default `none`. |
+| `--version` | Print the version and exit. |
 
 **Exit codes:** `0` clean (nothing reached `--fail-on`) · `1` a finding met `--fail-on` · `2` could
 not run (Docker unavailable, or a missing/invalid `--input` file).
