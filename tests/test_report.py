@@ -116,6 +116,53 @@ def test_cli_fail_on(cli_input: str, fail_on: str, code: int) -> None:
     assert cli.main(["--input", cli_input, "--fail-on", fail_on]) == code
 
 
+_HOSTILE = "\x1b[31mFAKE\x1b[0m\r\u200b`<[|x"
+_CLEAN = "[31mFAKE[0m`<[|x"  # ESC, CR and ZWSP removed; the rest untouched
+
+
+@pytest.fixture
+def hostile_report() -> Report:
+    f = Finding(
+        check_id=_HOSTILE,
+        title=_HOSTILE,
+        severity=Severity.HIGH,
+        container=_HOSTILE,
+        detail=_HOSTILE,
+        evidence=_HOSTILE,
+        remediation=_HOSTILE,
+    )
+    return Report(host=_HOSTILE, scanned=1, findings=[f], timestamp="t")
+
+
+@pytest.mark.parametrize("fmt", ["text", "json", "markdown"])
+def test_hostile_strings_are_stripped(hostile_report: Report, fmt: str) -> None:
+    out = render(hostile_report, fmt)
+    for bad in ("\x1b", "\r", "\u200b"):
+        assert bad not in out
+
+
+def test_hostile_json_still_parses(hostile_report: Report) -> None:
+    data = json.loads(render(hostile_report, "json"))
+    assert data["host"] == _CLEAN
+    assert data["findings"][0]["detail"] == _CLEAN
+
+
+def test_hostile_markdown_cannot_break_table(hostile_report: Report) -> None:
+    out = render(hostile_report, "markdown")
+    row = next(line for line in out.splitlines() if line.startswith("| high"))
+    assert row.replace(r"\|", "").count("|") == 6  # five cells => six unescaped pipes
+    for escaped in (r"\`", r"\<", r"\["):
+        assert escaped in row
+    host_line = next(line for line in out.splitlines() if line.startswith("Host "))
+    assert host_line.count("`") == 2
+
+
+def test_markdown_backslash_before_pipe_is_escaped() -> None:
+    f = _finding(Severity.LOW, "x", "c", "a\\|b")
+    out = render(Report("h", 1, [f], "t"), "markdown")
+    assert r"a\\\|b" in out
+
+
 def test_cli_format(cli_input: str, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["--input", cli_input, "--format", "json"]) == 0
     data = json.loads(capsys.readouterr().out)

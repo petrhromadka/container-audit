@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 
 from ca.models import Finding, Report, Severity
+
+
+def _sanitize(text: str) -> str:
+    """Drop control (Cc), format (Cf) and other C* characters so output cannot drive a terminal."""
+    return "".join(ch for ch in text if not unicodedata.category(ch).startswith("C"))
 
 
 def _sorted(findings: list[Finding]) -> list[Finding]:
@@ -13,22 +19,22 @@ def _sorted(findings: list[Finding]) -> list[Finding]:
 
 def _as_dict(f: Finding) -> dict[str, str]:
     return {
-        "check_id": f.check_id,
-        "title": f.title,
+        "check_id": _sanitize(f.check_id),
+        "title": _sanitize(f.title),
         "severity": f.severity.label,
-        "container": f.container,
-        "detail": f.detail,
-        "evidence": f.evidence,
-        "remediation": f.remediation,
+        "container": _sanitize(f.container),
+        "detail": _sanitize(f.detail),
+        "evidence": _sanitize(f.evidence),
+        "remediation": _sanitize(f.remediation),
     }
 
 
 def _text(report: Report) -> str:
     lines = [
         "container-audit report",
-        f"Host:      {report.host}",
+        f"Host:      {_sanitize(report.host)}",
         f"Scanned:   {report.scanned} container(s)",
-        f"Timestamp: {report.timestamp}",
+        f"Timestamp: {_sanitize(report.timestamp)}",
     ]
     counts = ", ".join(
         f"{sev.label}={sum(1 for f in report.findings if f.severity == sev)}"
@@ -39,19 +45,20 @@ def _text(report: Report) -> str:
     if not report.findings:
         lines.append("No findings.")
     for f in _sorted(report.findings):
-        lines.append(f"[{f.severity.name}] {f.check_id}  {f.container} - {f.detail}")
-        if f.evidence:
-            lines.append(f"    evidence:    {f.evidence}")
-        if f.remediation:
-            lines.append(f"    remediation: {f.remediation}")
+        d = _as_dict(f)
+        lines.append(f"[{f.severity.name}] {d['check_id']}  {d['container']} - {d['detail']}")
+        if d["evidence"]:
+            lines.append(f"    evidence:    {d['evidence']}")
+        if d["remediation"]:
+            lines.append(f"    remediation: {d['remediation']}")
     return "\n".join(lines) + "\n"
 
 
 def _json(report: Report) -> str:
     data = {
-        "host": report.host,
+        "host": _sanitize(report.host),
         "scanned": report.scanned,
-        "timestamp": report.timestamp,
+        "timestamp": _sanitize(report.timestamp),
         "worst": report.worst.label,
         "findings": [_as_dict(f) for f in _sorted(report.findings)],
     }
@@ -59,14 +66,20 @@ def _json(report: Report) -> str:
 
 
 def _cell(text: str) -> str:
-    return text.replace("|", "\\|").replace("\n", " ")
+    out = _sanitize(text.replace("\n", " ").replace("\r", " "))
+    out = out.replace("\\", "\\\\")  # a lone backslash before "|" would otherwise cancel its escape
+    for ch in "|`<>[":
+        out = out.replace(ch, "\\" + ch)
+    return out
 
 
 def _markdown(report: Report) -> str:
+    host = _sanitize(report.host).replace("`", "'")  # inside a code span, escapes do not work
     lines = [
         "# container-audit report",
         "",
-        f"Host `{report.host}`, {report.scanned} container(s) scanned at {report.timestamp}: "
+        f"Host `{host}`, {report.scanned} container(s) "
+        f"scanned at {_cell(report.timestamp)}: "
         f"{len(report.findings)} finding(s), worst severity {report.worst.label}.",
         "",
     ]
