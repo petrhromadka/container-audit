@@ -1,9 +1,12 @@
-# container-audit
+<div align="center">
 
-**Read-only security audit for Docker hosts.** It inspects your containers and reports risky
-configuration: root users, exposed ports, secrets in environment variables, privileged mode,
-dangerous capabilities, mounted Docker sockets, sensitive host mounts, shared host namespaces,
-missing hardening options and unpinned images.
+# 🛡️ container-audit
+
+**Read-only security audit for Docker hosts.**
+
+Point it at your containers and it reports the risky configuration — root users, exposed ports,
+secrets in environment variables, privileged mode, dangerous capabilities, mounted Docker sockets,
+shared host namespaces and missing hardening — as a clean text, JSON or Markdown report.
 
 [![CI](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/petrhromadka/container-audit/actions/workflows/ci.yml)
 ![defensive](https://img.shields.io/badge/purpose-defensive-blue)
@@ -11,13 +14,18 @@ missing hardening options and unpinned images.
 ![python](https://img.shields.io/badge/python-3.12%2B-informational)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-> **Defensive and read-only.** container-audit only runs `docker ps` and `docker inspect` (or
-> reads a saved copy of that JSON). It never starts, stops, or modifies a container, and it never
-> sends data anywhere.
+[Quick start](#-quick-start) · [What it checks](#-what-it-checks) · [Usage](#-usage) · [How it works](#-how-it-works) · [Safety](#-safety)
+
+</div>
+
+> [!NOTE]
+> **Defensive and read-only.** container-audit only runs `docker ps` and `docker inspect` (or reads
+> a saved copy of that JSON). It never starts, stops, or modifies a container, and it never sends
+> data anywhere.
 
 ---
 
-## Quick start
+## 🚀 Quick start
 
 No Docker needed to try it — the repo ships a sample `docker inspect` dump:
 
@@ -27,93 +35,86 @@ cd container-audit
 uv run container-audit --input tests/fixtures/sample_inspect.json
 ```
 
-You'll see ten findings on the intentionally-insecure `bad-db` container and a clean bill of
-health for the hardened `good-web` one. To scan your own host instead, just run `container-audit`
-(it reads live containers via `docker ps` / `docker inspect`).
+You'll see ten findings on the intentionally-insecure `bad-db` container and a clean bill of health
+for the hardened `good-web` one. To scan your own host instead, just run `container-audit` — it
+reads live containers via `docker ps` / `docker inspect`.
 
 ---
 
-## What it checks
+## 🔍 What it checks
 
-| Check id                    | Severity | What                                                                | Why it matters                                                                                     |
-| --------------------------- | -------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `docker-socket-mount`       | critical | `/var/run/docker.sock` is mounted into the container                | Access to the socket is effectively root on the host: the container can start any other container. |
-| `privileged`                | critical | Container runs with `--privileged`                                  | Disables most isolation: full device access and all capabilities.                                  |
-| `root-user`                 | high     | Container runs as root (no `USER`, or `0` / `root`)                 | A process escape or file-permission bug has root privileges inside the container.                   |
-| `dangerous-caps`            | high     | Capabilities such as `SYS_ADMIN`, `NET_ADMIN` or `SYS_PTRACE` added | These widen the attack surface and are common container-escape building blocks.                     |
-| `secret-in-env`             | high     | Env var names that look like secrets (password, token, key, …)      | Secrets in env vars leak through `docker inspect`, logs and child processes.                        |
-| `sensitive-host-mount`      | high     | Host paths such as `/`, `/etc`, `/proc` or `/root` are bind-mounted | A compromised container can read or alter host configuration and credentials.                       |
-| `host-pid`                  | high     | Container shares the host PID namespace (`--pid=host`)              | It can see and signal every process on the host.                                                   |
-| `host-network`              | high     | Container shares the host network namespace (`--network=host`)      | Network isolation and port mapping are bypassed; it binds directly on host interfaces.             |
-| `port-all-interfaces`       | medium   | Port published on all interfaces (`0.0.0.0` or `::`)                | The service is reachable from every network the host is on, not just where you intend.             |
-| `host-ipc`                  | medium   | Container shares the host IPC namespace (`--ipc=host`)             | Shared memory and semaphores cross the container boundary.                                          |
-| `no-new-privileges-missing` | medium   | `no-new-privileges` is not set in `SecurityOpt`                     | setuid binaries inside the container can still escalate privileges.                                 |
-| `writable-rootfs`           | low      | Root filesystem is writable (not `read_only`)                      | An attacker can persist changes and tooling inside the container.                                   |
-| `unpinned-image`            | low      | Image uses `:latest`, no tag, or no digest                         | Pulls are not reproducible and a changed upstream image can silently alter what runs.              |
-| `host-uts`                  | low      | Container shares the host UTS namespace (`--uts=host`)             | It can change the host's hostname.                                                                  |
-| `unlimited-memory`          | low      | No memory limit set                                                | A single container can exhaust host RAM and take the host down.                                     |
+Severity key: 🔴 critical · 🟠 high · 🟡 medium · 🔵 low. Each finding carries a title, a plain-language
+explanation, short **redacted** evidence, and a one-line remediation.
 
-Findings are ordered from `critical` down. Each finding carries a title, a human-readable
-explanation, short redacted evidence, and a one-line remediation.
+### Privilege &amp; escape
 
-## Install
+| | Check id | What | Why it matters |
+| :-: | --- | --- | --- |
+| 🔴 | `docker-socket-mount` | `/var/run/docker.sock` is mounted in | Socket access is effectively root on the host: it can start any other container. |
+| 🔴 | `privileged` | Container runs `--privileged` | Disables most isolation: full device access and all capabilities. |
+| 🟠 | `root-user` | Runs as root (no `USER`, or `0`/`root`) | A process escape or file-permission bug has root inside the container. |
+| 🟠 | `dangerous-caps` | Caps like `SYS_ADMIN`, `NET_ADMIN`, `SYS_PTRACE` added | Common container-escape building blocks. |
+| 🟠 | `sensitive-host-mount` | Host paths (`/`, `/etc`, `/proc`, `/root`, …) bind-mounted | A compromised container can read or alter host config and credentials. |
 
-Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). The `docker` CLI is only needed when
-you audit a live host; auditing a saved file with `--input` does not need it.
+### Namespaces &amp; exposure
+
+| | Check id | What | Why it matters |
+| :-: | --- | --- | --- |
+| 🟠 | `host-pid` | Shares the host PID namespace (`--pid=host`) | It can see and signal every process on the host. |
+| 🟠 | `host-network` | Shares the host network namespace (`--network=host`) | Network isolation and port mapping are bypassed. |
+| 🟡 | `port-all-interfaces` | Port published on `0.0.0.0` / `::` | Reachable from every network the host is on, not just where you intend. |
+| 🟡 | `host-ipc` | Shares the host IPC namespace (`--ipc=host`) | Shared memory and semaphores cross the container boundary. |
+| 🔵 | `host-uts` | Shares the host UTS namespace (`--uts=host`) | It can change the host's hostname. |
+
+### Secrets &amp; hardening
+
+| | Check id | What | Why it matters |
+| :-: | --- | --- | --- |
+| 🟠 | `secret-in-env` | Env var that looks like a secret, or a URL with embedded credentials | Secrets in env vars leak via `docker inspect`, logs and child processes. |
+| 🟡 | `no-new-privileges-missing` | `no-new-privileges:true` is not set | setuid binaries inside the container can still escalate privileges. |
+| 🔵 | `writable-rootfs` | Root filesystem is writable (not `read_only`) | An attacker can persist changes and tooling. |
+| 🔵 | `unpinned-image` | Image uses `:latest`, no tag, or no digest | Pulls aren't reproducible; upstream can silently change what runs. |
+| 🔵 | `unlimited-memory` | No memory limit set | A single container can exhaust host RAM and take the host down. |
+
+---
+
+## 📦 Install
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). The `docker` CLI is only needed to audit
+a live host; auditing a saved file with `--input` does not need it.
 
 ```bash
-# Install as a tool from a checkout
-uv tool install .
-
-# Or run it without installing
-uvx --from . container-audit
-
-# Or run it from a checkout inside the project environment
-uv run container-audit
+uv tool install .                 # install as a tool from a checkout
+uvx --from . container-audit      # or run without installing
+uv run container-audit            # or run inside the project environment
 ```
 
-## Usage
+---
+
+## 💻 Usage
 
 ```bash
-# Audit running containers on this host
-container-audit
+container-audit                                             # audit running containers
+container-audit --include-stopped                          # include stopped ones too
+container-audit --format json                              # machine-readable output
+container-audit --format markdown > report.md              # for an issue / PR / wiki
 
-# Include stopped containers too
-container-audit --include-stopped
-
-# Audit a saved `docker inspect` file instead of talking to Docker
-docker inspect $(docker ps -aq) > sample.json
-container-audit --input sample.json
-
-# Produce a Markdown report (for an issue, wiki page or PR comment)
-container-audit --input sample.json --format markdown > report.md
-
-# Machine-readable output
-container-audit --format json
-
-# Fail a CI job when anything high or worse is found
-container-audit --fail-on high
+docker inspect $(docker ps -aq) > sample.json              # audit a saved dump, no live Docker
+container-audit --input sample.json --fail-on high         # non-zero exit for CI gating
 ```
 
-| Flag                | Meaning                                                                            |
-| ------------------- | ---------------------------------------------------------------------------------- |
-| `--input FILE`      | Read `docker inspect` JSON from `FILE` instead of calling Docker.                   |
-| `--format FORMAT`   | Output format: `text` (default), `json` or `markdown`.                             |
-| `--include-stopped` | Also inspect containers that are not running.                                      |
-| `--include-host`    | Include the real hostname in the report (off by default, so output is safe to share). |
-| `--fail-on LEVEL`   | Exit non-zero if any finding is at or above `LEVEL` (`none`, `low`, `medium`, `high`, `critical`). Default `none`. |
+| Flag | Meaning |
+| --- | --- |
+| `--input FILE` | Read `docker inspect` JSON from `FILE` instead of calling Docker. |
+| `--format FORMAT` | Output format: `text` (default), `json` or `markdown`. |
+| `--include-stopped` | Also inspect containers that are not running. |
+| `--include-host` | Include the real hostname in the report (off by default, so output is safe to share). |
+| `--fail-on LEVEL` | Exit non-zero if any finding is at or above `LEVEL` (`none`, `low`, `medium`, `high`, `critical`). Default `none`. |
 
-### Exit codes
-
-| Code | Meaning                                                                     |
-| ---- | --------------------------------------------------------------------------- |
-| `0`  | Ran successfully; no finding reached the `--fail-on` threshold.             |
-| `1`  | Ran successfully, but a finding was at or above `--fail-on`.                |
-| `2`  | Could not run: Docker unavailable, or the `--input` file was missing/invalid. |
+**Exit codes:** `0` clean (nothing reached `--fail-on`) · `1` a finding met `--fail-on` · `2` could
+not run (Docker unavailable, or a missing/invalid `--input` file).
 
 ### Use in CI
-
-Gate a pipeline on the audit by scanning a saved inspect dump and failing on high-severity issues:
 
 ```yaml
 - name: Audit containers
@@ -123,38 +124,24 @@ Gate a pipeline on the audit by scanning a saved inspect dump and failing on hig
       container-audit --input containers.json --fail-on high
 ```
 
-## How it works
+---
+
+## ⚙️ How it works
 
 ```text
 docker ps / docker inspect  ->  parse into Container objects  ->  run checks  ->  render report
-        (or --input file)                                          (pure functions)   text / json / markdown
+       (or --input file)                                        (pure functions)   text / json / markdown
 ```
 
-1. **Collect.** The tool lists containers with `docker ps` and reads their configuration with
-   `docker inspect`. With `--input`, it parses a saved copy of that JSON instead.
-2. **Check.** Each check is a pure function that takes the parsed containers and yields findings.
-   Checks never talk to Docker and never change anything.
-3. **Report.** Findings are sorted by severity and rendered as text, JSON or Markdown. With
+1. **Collect** — list containers with `docker ps` and read their config with `docker inspect` (or
+   parse a saved copy via `--input`).
+2. **Check** — each check is a pure function over the parsed containers that yields findings. Checks
+   never talk to Docker and never change anything.
+3. **Report** — findings are sorted by severity and rendered as text, JSON or Markdown; with
    `--fail-on`, the exit code reflects the worst severity found.
 
-## Safety
-
-- **Read-only.** The only Docker commands used are `docker ps` and `docker inspect`. Nothing is
-  started, stopped, restarted, or reconfigured.
-- **Secret values are never printed.** For environment variables that look like secrets, only the
-  variable **name** is reported, with the value masked to `***` — no characters of the value appear
-  in text, JSON, or Markdown output.
-- **Hostname hidden by default.** The report shows `(redacted)` as the host unless you pass
-  `--include-host`.
-- **Output is sanitized.** Control and terminal-escape characters from container metadata are
-  stripped so a report is safe to print in a terminal or paste into Markdown.
-- **No network use.** The tool does not transmit data anywhere and has no runtime dependencies.
-- Reports can still reveal your container names, image names, ports and mount paths. Review a
-  report before sharing it publicly.
-
-## Example output
-
-Generated from `tests/fixtures/sample_inspect.json`, which contains only made-up data.
+<details>
+<summary>📋 Example report (from the bundled sample fixture)</summary>
 
 ```text
 container-audit report
@@ -195,10 +182,31 @@ Findings:  10 (critical=2, high=3, medium=3, low=2, info=0)
     remediation: Set `read_only: true` and use tmpfs or volumes for writable paths.
 ```
 
-The second container in the fixture, `good-web`, is hardened (non-root, read-only rootfs, memory
-limit, `no-new-privileges`, port bound to `127.0.0.1`) and produces no findings.
+The second container, `good-web`, is hardened (non-root, read-only rootfs, memory limit,
+`no-new-privileges`, port bound to `127.0.0.1`) and produces no findings.
 
-## Development
+</details>
+
+---
+
+## 🔒 Safety
+
+- **Read-only.** The only Docker commands used are `docker ps` and `docker inspect`. Nothing is
+  started, stopped, restarted, or reconfigured.
+- **Secret values are never printed.** For env vars that look like secrets, only the variable
+  **name** is reported, with the value masked to `***` — no characters of the value appear in any
+  output format.
+- **Hostname hidden by default.** Reports show `(redacted)` as the host unless you pass
+  `--include-host`.
+- **Output is sanitized.** Control and terminal-escape characters from container metadata are
+  stripped, so a report is safe to print in a terminal or paste into Markdown.
+- **No network use, no runtime dependencies.** The tool never transmits data anywhere.
+- Reports can still reveal your container names, image names, ports and mount paths — review one
+  before sharing it publicly.
+
+---
+
+## 🧰 Development
 
 ```bash
 uv sync                      # create the environment
@@ -208,13 +216,15 @@ uv run ty check src          # type check
 uv run pytest                # tests
 ```
 
-Pre-commit hooks (ruff, gitleaks, whitespace fixes) are defined in `.pre-commit-config.yaml`;
-install them with [`prek`](https://github.com/j178/prek) or `pre-commit`. CI runs the same checks
-plus a gitleaks scan.
+Pre-commit hooks (ruff, gitleaks, whitespace fixes) live in `.pre-commit-config.yaml`; install them
+with [`prek`](https://github.com/j178/prek) or `pre-commit`. CI runs the same checks plus a gitleaks
+scan over the full history.
 
 To add a check, write a function that takes `list[Container]` and yields `Finding` objects, then
 register it in the `CHECKS` list of the relevant module under `src/ca/checks/`.
 
-## License
+---
+
+## 📄 License
 
 [MIT](LICENSE) © 2026 Petr Hromádka
