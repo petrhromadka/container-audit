@@ -24,7 +24,10 @@ def _run(args: list[str]) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=30,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("docker timed out after 30s") from exc
     except OSError as exc:
         raise RuntimeError(f"failed to run docker: {exc}") from exc
     if proc.returncode != 0:
@@ -38,7 +41,7 @@ def inspect_json(ids: list[str]) -> list[dict[str, Any]]:
     """Run `docker inspect` on the given container ids and return the parsed JSON."""
     if not ids:
         return []
-    out = _run(["inspect", *ids])
+    out = _run(["inspect", "--type", "container", "--", *ids])
     try:
         data = json.loads(out)
     except json.JSONDecodeError as exc:

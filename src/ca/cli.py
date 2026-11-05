@@ -34,14 +34,21 @@ def _parser() -> argparse.ArgumentParser:
         default="none",
         help="exit 1 if any finding is at or above this severity",
     )
+    p.add_argument(
+        "--include-host",
+        action="store_true",
+        help="include the real hostname in the report (off by default so output is safe to share)",
+    )
     return p
 
 
-def _load(args: argparse.Namespace) -> list[Container] | None:
+def _load_unchecked(args: argparse.Namespace) -> list[Container] | None:
     if args.input:
         from ca.collect import parse_inspect
 
         objects = json.loads(Path(args.input).read_text(encoding="utf-8"))
+        if not isinstance(objects, list) or not all(isinstance(o, dict) for o in objects):
+            raise ValueError("input must be a JSON array of docker inspect objects")
         return parse_inspect(objects)
 
     from ca.docker_cli import collect_running, docker_available
@@ -50,6 +57,23 @@ def _load(args: argparse.Namespace) -> list[Container] | None:
         print("error: docker is not available (is it installed and running?)", file=sys.stderr)
         return None
     return collect_running(include_stopped=args.include_stopped)
+
+
+def _load(args: argparse.Namespace) -> list[Container] | None:
+    """Load containers; on an expected failure print a short error and return None."""
+    try:
+        return _load_unchecked(args)
+    except FileNotFoundError:
+        print("error: input file not found", file=sys.stderr)
+    except OSError as exc:
+        print(f"error: cannot read input ({type(exc).__name__})", file=sys.stderr)
+    except RecursionError:
+        print("error: input JSON is nested too deeply", file=sys.stderr)
+    except ValueError as exc:
+        print(f"error: invalid input: {exc}", file=sys.stderr)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         findings.extend(check(containers))
 
     report = Report(
-        host=socket.gethostname(),
+        host=socket.gethostname() if args.include_host else "(redacted)",
         scanned=len(containers),
         findings=findings,
         timestamp=datetime.now(UTC).isoformat(),
