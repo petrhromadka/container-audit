@@ -93,6 +93,18 @@ uv run python -m ca               # module form (use this if the console script 
 > On Windows, Smart App Control may block the generated `container-audit.exe` launcher. Run the
 > tool as a module instead: `python -m ca` (or `uv run python -m ca`).
 
+Once published to PyPI it also installs with `pipx install container-audit` or `uvx container-audit`.
+
+### Run with Docker
+
+The image ships the tool (the Docker CLI is intentionally not bundled); feed it a saved inspect dump
+on stdin:
+
+```bash
+docker build -t container-audit .
+docker inspect $(docker ps -aq) | docker run --rm -i container-audit --input /dev/stdin --fail-on high
+```
+
 ---
 
 ## 💻 Usage
