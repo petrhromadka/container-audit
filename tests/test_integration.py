@@ -32,6 +32,7 @@ def test_bad_container_has_expected_findings(capsys: pytest.CaptureFixture[str])
         "root-user",
         "secret-in-env",
         "port-all-interfaces",
+        "stale-image",
     } <= bad_ids
 
 
@@ -62,7 +63,7 @@ def test_fail_on_level_reached_returns_one(capsys: pytest.CaptureFixture[str], l
 def test_fail_on_returns_zero_when_no_findings(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    good_only = [c for c in json.loads(FIXTURE.read_text("utf-8")) if c["Name"] == "/good-web"]
+    good_only = [c for c in json.loads(FIXTURE.read_text("utf-8")) if c.get("Name") == "/good-web"]
     path = tmp_path / "good.json"
     path.write_text(json.dumps(good_only), encoding="utf-8")
     assert _run(capsys, "--fail-on", "low", path=path)[0] == 0

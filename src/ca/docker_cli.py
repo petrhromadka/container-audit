@@ -21,7 +21,7 @@ def docker_available() -> bool:
     return _docker_path() is not None
 
 
-def _run(args: list[str]) -> str:
+def _run(args: list[str], allow_failure: bool = False) -> str:
     path = _docker_path()
     if path is None:
         raise RuntimeError("docker executable not found in PATH")
@@ -37,24 +37,32 @@ def _run(args: list[str]) -> str:
         raise RuntimeError("docker timed out after 30s") from exc
     except OSError as exc:
         raise RuntimeError(f"failed to run docker: {exc}") from exc
-    if proc.returncode != 0:
+    if proc.returncode != 0 and not allow_failure:
         raise RuntimeError(
             f"docker {args[0]} failed (exit {proc.returncode}): {proc.stderr.strip()}"
         )
     return proc.stdout
 
 
-def inspect_json(ids: list[str]) -> list[dict[str, Any]]:
-    """Run `docker inspect` on the given container ids and return the parsed JSON."""
+def inspect_json(
+    ids: list[str], kind: str = "container", best_effort: bool = False
+) -> list[dict[str, Any]]:
+    """Run `docker inspect --type <kind>` on the given ids and return the parsed JSON.
+
+    With `best_effort`, ids Docker cannot find are skipped: it still prints the objects it
+    found as JSON and exits 1, e.g. when a running container's image was deleted.
+    """
     if not ids:
         return []
     result: list[dict[str, Any]] = []
     for start in range(0, len(ids), _INSPECT_CHUNK):
         chunk = ids[start : start + _INSPECT_CHUNK]
-        out = _run(["inspect", "--type", "container", "--", *chunk])
+        out = _run(["inspect", "--type", kind, "--", *chunk], allow_failure=best_effort)
         try:
             data = json.loads(out)
         except json.JSONDecodeError as exc:
+            if best_effort:
+                continue
             raise RuntimeError(f"docker inspect returned invalid JSON: {exc}") from exc
         result.extend(data)
     return result
@@ -66,4 +74,6 @@ def collect_running(include_stopped: bool = False) -> list[Container]:
     if include_stopped:
         args.append("-a")
     ids = _run(args).split()
-    return parse_inspect(inspect_json(ids))
+    containers = inspect_json(ids)
+    image_ids = sorted({c["Image"] for c in containers if isinstance(c.get("Image"), str)})
+    return parse_inspect([*containers, *inspect_json(image_ids, kind="image", best_effort=True)])

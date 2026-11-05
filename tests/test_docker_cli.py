@@ -68,3 +68,38 @@ def test_inspect_json_empty_makes_no_calls(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(subprocess, "run", fail)
     assert docker_cli.inspect_json([]) == []
+
+
+def test_collect_running_attaches_image_build_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+    outputs = {
+        "ps": "c1\n",
+        "container": json.dumps([{"Id": "c1", "Name": "/app", "Image": "sha256:img"}]),
+        "image": json.dumps([{"Id": "sha256:img", "Created": "2024-01-02T00:00:00Z", "RootFS": 1}]),
+    }
+
+    def fake_run(args: list[str], allow_failure: bool = False) -> str:
+        calls.append(args)
+        return outputs["ps" if args[0] == "ps" else args[2]]
+
+    monkeypatch.setattr(docker_cli, "_run", fake_run)
+    [container] = docker_cli.collect_running()
+
+    assert container.name == "app"
+    assert container.image_created == "2024-01-02T00:00:00Z"
+    assert calls[-1] == ["inspect", "--type", "image", "--", "sha256:img"]
+
+
+def test_image_inspect_skips_deleted_images(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A running container whose image was deleted must not abort the audit."""
+    _patch_which(monkeypatch, DOCKER)
+    found = json.dumps([{"Id": "sha256:ok", "Created": "2024-01-02T00:00:00Z", "RootFS": 1}])
+    monkeypatch.setattr(
+        subprocess, "run", lambda *_a, **_k: _Proc(1, found, "No such image: sha256:gone")
+    )
+
+    result = docker_cli.inspect_json(["sha256:ok", "sha256:gone"], "image", best_effort=True)
+
+    assert [o["Id"] for o in result] == ["sha256:ok"]
+    with pytest.raises(RuntimeError, match="No such image"):
+        docker_cli.inspect_json(["sha256:ok", "sha256:gone"], "image")
