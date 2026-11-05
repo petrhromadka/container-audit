@@ -13,7 +13,7 @@ Add this to the consuming repository's `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/petrhromadka/container-audit
-    rev: v0.3.0
+    rev: v0.4.0
     hooks:
       - id: container-audit
 ```
@@ -50,7 +50,7 @@ has more than one, pin the hook to a specific file:
 ```yaml
 repos:
   - repo: https://github.com/petrhromadka/container-audit
-    rev: v0.3.0
+    rev: v0.4.0
     hooks:
       - id: container-audit
         files: '^docker-compose\.yml$'
@@ -65,7 +65,7 @@ commit to fail, then add any extra flags:
 ```yaml
 repos:
   - repo: https://github.com/petrhromadka/container-audit
-    rev: v0.3.0
+    rev: v0.4.0
     hooks:
       - id: container-audit
         # fail only on critical findings and suppress one check

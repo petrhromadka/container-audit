@@ -243,7 +243,7 @@ def _to_inspect(name: str, service: dict[str, Any]) -> dict[str, Any]:
 def parse_compose(path: str | Path) -> list[Container]:
     """Parse a docker-compose.yml into Container models via the existing inspect pipeline."""
     try:
-        import yaml  # ty: ignore[import-not-found]  # optional extra, see [compose] in pyproject
+        import yaml  # optional extra, installed via the [compose] group in pyproject
     except ImportError as exc:
         raise RuntimeError(
             "compose support needs PyYAML: install docker-host-audit[compose]"
