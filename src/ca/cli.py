@@ -29,8 +29,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--version", action="version", version=f"container-audit {__version__}")
     p.add_argument("--input", metavar="PATH", help="JSON array of `docker inspect` objects")
-    p.add_argument("--format", choices=["text", "json", "markdown"], default="text")
+    p.add_argument("--format", choices=["text", "json", "markdown", "sarif"], default="text")
     p.add_argument("--include-stopped", action="store_true", help="also audit stopped containers")
+    p.add_argument(
+        "--ignore",
+        action="append",
+        metavar="CHECK_ID",
+        help="suppress findings with this check id (repeatable), e.g. --ignore writable-rootfs",
+    )
     p.add_argument(
         "--fail-on",
         choices=["none", *_FAIL_LEVELS],
@@ -96,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
         findings.extend(check(containers))
     floor = _MIN_LEVELS[args.min_severity]
     findings = [f for f in findings if f.severity >= floor]
+    ignored = set(args.ignore or [])
+    findings = [f for f in findings if f.check_id not in ignored]
 
     report = Report(
         host=socket.gethostname() if args.include_host else "(redacted)",
