@@ -9,6 +9,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ca import __version__
 from ca.checks import get_checks
 from ca.models import Container, Finding, Report, Severity
 from ca.report import render
@@ -19,12 +20,14 @@ _FAIL_LEVELS = {
     "high": Severity.HIGH,
     "critical": Severity.CRITICAL,
 }
+_MIN_LEVELS = {"info": Severity.INFO, **_FAIL_LEVELS}
 
 
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="container-audit", description="Read-only security audit of a Docker host."
     )
+    p.add_argument("--version", action="version", version=f"container-audit {__version__}")
     p.add_argument("--input", metavar="PATH", help="JSON array of `docker inspect` objects")
     p.add_argument("--format", choices=["text", "json", "markdown"], default="text")
     p.add_argument("--include-stopped", action="store_true", help="also audit stopped containers")
@@ -33,6 +36,12 @@ def _parser() -> argparse.ArgumentParser:
         choices=["none", *_FAIL_LEVELS],
         default="none",
         help="exit 1 if any finding is at or above this severity",
+    )
+    p.add_argument(
+        "--min-severity",
+        choices=list(_MIN_LEVELS),
+        default="info",
+        help="hide findings below this severity from the report (--fail-on sees the same list)",
     )
     p.add_argument(
         "--include-host",
@@ -85,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
     findings: list[Finding] = []
     for check in get_checks():
         findings.extend(check(containers))
+    floor = _MIN_LEVELS[args.min_severity]
+    findings = [f for f in findings if f.severity >= floor]
 
     report = Report(
         host=socket.gethostname() if args.include_host else "(redacted)",
