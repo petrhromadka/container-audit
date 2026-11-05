@@ -1,0 +1,87 @@
+[
+  {
+    "Id": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    "Name": "/bad-db",
+    "Image": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "State": {"Status": "running", "Running": true},
+    "Config": {
+      "Image": "postgres:16",
+      "User": "",
+      "Env": [
+        "POSTGRES_DB=app",
+        "DB_PASSWORD=hunter2",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      ]
+    },
+    "HostConfig": {
+      "Privileged": true,
+      "CapAdd": ["SYS_ADMIN"],
+      "CapDrop": null,
+      "PidMode": "",
+      "NetworkMode": "bridge",
+      "ReadonlyRootfs": false,
+      "RestartPolicy": {"Name": "always", "MaximumRetryCount": 0}
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/var/run/docker.sock",
+        "Destination": "/var/run/docker.sock",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "volume",
+        "Name": "pgdata",
+        "Source": "/var/lib/docker/volumes/pgdata/_data",
+        "Destination": "/var/lib/postgresql/data",
+        "Driver": "local",
+        "Mode": "z",
+        "RW": true,
+        "Propagation": ""
+      }
+    ],
+    "NetworkSettings": {
+      "Ports": {
+        "5432/tcp": [{"HostIp": "0.0.0.0", "HostPort": "5432"}]
+      }
+    }
+  },
+  {
+    "Id": "f9e8d7c6b5a40312f9e8d7c6b5a40312f9e8d7c6b5a40312f9e8d7c6b5a40312",
+    "Name": "/good-web",
+    "Image": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "State": {"Status": "running", "Running": true},
+    "Config": {
+      "Image": "nginx:1.27",
+      "User": "1000:1000",
+      "Env": ["NGINX_PORT=8080"]
+    },
+    "HostConfig": {
+      "Privileged": false,
+      "CapAdd": null,
+      "CapDrop": ["ALL"],
+      "PidMode": "",
+      "NetworkMode": "bridge",
+      "ReadonlyRootfs": true,
+      "RestartPolicy": {"Name": "unless-stopped", "MaximumRetryCount": 0}
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/srv/web/html",
+        "Destination": "/usr/share/nginx/html",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ],
+    "NetworkSettings": {
+      "Ports": {
+        "8080/tcp": [{"HostIp": "127.0.0.1", "HostPort": "8080"}],
+        "9000/tcp": null
+      }
+    }
+  }
+]
