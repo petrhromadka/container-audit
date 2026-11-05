@@ -47,7 +47,7 @@ def test_secret_in_env_masks_value() -> None:
     assert len(findings) == 1
     finding = findings[0]
     assert finding.severity is Severity.HIGH
-    assert finding.evidence == "DB_PASSWORD=hu***"
+    assert finding.evidence == "DB_PASSWORD=***"
     for text in (
         finding.title,
         finding.detail,
@@ -72,7 +72,7 @@ def test_secret_in_env_skips_non_secrets_and_placeholders() -> None:
 
 def test_secret_in_env_matches_key_suffix() -> None:
     findings = list(secret_in_env([make(env=("SIGNING_KEY=abcdef",))]))
-    assert [f.evidence for f in findings] == ["SIGNING_KEY=ab***"]
+    assert [f.evidence for f in findings] == ["SIGNING_KEY=***"]
 
 
 def test_unpinned_image() -> None:

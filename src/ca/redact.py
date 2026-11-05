@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 
-def mask(value: str, keep: int = 2) -> str:
-    """Mask a sensitive value, keeping at most `keep` leading chars.
+def mask(value: str) -> str:
+    """Mask a sensitive value without revealing any character of it.
 
     >>> mask("supersecret")
-    'su***'
+    '***'
     >>> mask("")
     '***'
     """
-    value = value.strip()
-    if len(value) <= keep:
-        return "***"
-    return f"{value[:keep]}***"
+    return "***"
